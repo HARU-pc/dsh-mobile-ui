@@ -15,5 +15,14 @@
       "platform": "web",
       "immediately": true
     }
+  },
+  "devDependencies": {
+    "happy-dom": "^20.14.6"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

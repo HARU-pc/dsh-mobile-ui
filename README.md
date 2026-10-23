@@ -42,15 +42,21 @@ The plugin never touches DSH's hashed CSS class names or internal stores. It rel
 
 If a future DSH build changes these, the media queries simply stop matching and the stock desktop-style layout returns — degradation is safe.
 
-Decision records live in [docs/adr/](docs/adr/) (Japanese). Code comments reference them by number (e.g. `ADR-20261023-1720`).
+The current specification is [docs/spec.md](docs/spec.md); decision records live in [docs/adr/](docs/adr/) (both Japanese). Code comments reference them by number (e.g. `ADR-20261023-1720`).
 
-ハッシュ化クラス名や内部ストアには依存せず、安定した data 属性と公開サービスだけを使う。壊れた場合は従来表示へ劣化する（安全側）。設計判断の経緯は [docs/adr/](docs/adr/) を参照。
+ハッシュ化クラス名や内部ストアには依存せず、安定した data 属性と公開サービスだけを使う。壊れた場合は従来表示へ劣化する（安全側）。現在の仕様は [docs/spec.md](docs/spec.md)、設計判断の経緯は [docs/adr/](docs/adr/) を参照。
 
 ## Compatibility / 互換性
 
 - Developed against `@deepseek-ai/dsh-web-app` 0.2.0-rc.2 (web profile).
 - `:has()` requires iOS 15.4+ / modern browsers; older browsers keep the stock layout.
-- `maximum-scale=1` is ignored by iOS for manual pinch-zoom (accessibility), but limits pinch-zoom on some Android browsers. Primary targets are iPhone PWA and iPad.
+- `maximum-scale=1` was expected to be ignored by iOS for manual pinch-zoom, but pinch-zoom has been reported not to work in iPhone PWA mode (see [known issues](docs/known-issues.md) KI-8). Primary targets are iPhone PWA and iPad.
+
+## Development / 開発
+
+`npm ci && npm test` runs the test suite (node:test + happy-dom). Branch flow, test harness and checklist: [docs/development.md](docs/development.md). Known issues: [docs/known-issues.md](docs/known-issues.md).
+
+開発手順・ブランチ運用・テストは [docs/development.md](docs/development.md)、既知の問題は [docs/known-issues.md](docs/known-issues.md)。
 
 ## License
 
