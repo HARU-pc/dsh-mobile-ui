@@ -1,0 +1,57 @@
+# dsh-mobile-ui
+
+Mobile / tablet support for the [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness) Web GUI, as a local client plugin. No rebuild of DSH required — register it in your profile's `cordis.patch.yml` and reload the page.
+
+DSH Web GUI をスマホ・タブレットで使いやすくするローカル client プラグイン。DSH 本体の再ビルドは不要で、profile の `cordis.patch.yml` に登録してページを再読み込みするだけで反映される。
+
+## Features / 機能
+
+- **Phone layout (≤767px)**: the sidebar becomes a fixed overlay drawer; the 3-column grid collapses to one column, eliminating horizontal overflow from the center column's 400px minimum. A hamburger FAB opens the drawer; backdrop tap / Escape closes it (the hidden drawer is `inert`).
+  スマホ幅ではサイドバーをドロワー化し、中央カラム最小幅 400px 由来の横はみ出しを解消。
+- **Swipe gestures**: right-swipe from the left half opens the sidebar; right-swipe from the left edge collapses the right panel (diff viewer etc.) back to the chat; left-swipe closes the sidebar. Guards against horizontal scrollers (allowed again once scrolled fully left), text selection, and edit areas. Passive listeners only — native scrolling is never blocked.
+  スワイプ操作: 左半分からの右スワイプでサイドバー、左端からの右スワイプで右パネルから戻る、左スワイプで閉じる。
+- **iOS keyboard & zoom fixes**: viewport meta (`maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content`), 16px inputs to stop focus auto-zoom, and `visualViewport` tracking so the keyboard does not cover the composer in PWA (standalone/fullscreen) mode.
+  iOS のフォーカスズーム抑止と、PWA でキーボードが入力欄を覆う問題の補正。
+- **Safe-area padding** for notch / home-indicator in PWA display modes.
+
+## Install / 導入
+
+```sh
+git clone https://github.com/HARU-pc/dsh-mobile-ui.git
+ln -s "$(pwd)/dsh-mobile-ui" ~/.dsh/local-plugins/dsh-mobile-ui
+```
+
+Add to your DSH web profile patch layer (e.g. `~/.dsh/profiles/web/cordis.patch.yml`):
+
+```yaml
+- insert:
+    - id: mobile-ui
+      name: /Users/<you>/.dsh/local-plugins/dsh-mobile-ui/lib/index.js
+```
+
+Then reload the DSH web page on your device. To uninstall, remove the insert entry (and the symlink).
+
+`package.json` の `"private": true` は npm への誤 publish を防ぐためのもので、GitHub 上での公開とは無関係。
+
+## Design / 設計
+
+The plugin never touches DSH's hashed CSS class names or internal stores. It relies only on:
+
+- stable `data-*` attributes (`data-rightbar-col`, `data-sidebar-collapsed`, `data-side`, `data-lexical-editor`) and the frame's DOM shape,
+- public cross-plugin services: `ctx.layout` (sidebar toggle) and `ctx.sidebarRight` (right-panel expand state).
+
+If a future DSH build changes these, the media queries simply stop matching and the stock desktop-style layout returns — degradation is safe.
+
+Decision records live in [docs/adr/](docs/adr/) (Japanese). Code comments reference them by number (e.g. `ADR-20261023-1720`).
+
+ハッシュ化クラス名や内部ストアには依存せず、安定した data 属性と公開サービスだけを使う。壊れた場合は従来表示へ劣化する（安全側）。設計判断の経緯は [docs/adr/](docs/adr/) を参照。
+
+## Compatibility / 互換性
+
+- Developed against `@deepseek-ai/dsh-web-app` 0.2.0-rc.2 (web profile).
+- `:has()` requires iOS 15.4+ / modern browsers; older browsers keep the stock layout.
+- `maximum-scale=1` is ignored by iOS for manual pinch-zoom (accessibility), but limits pinch-zoom on some Android browsers. Primary targets are iPhone PWA and iPad.
+
+## License
+
+MIT
