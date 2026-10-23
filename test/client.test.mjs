@@ -167,32 +167,39 @@ test("[§6] viewport meta を書換え、dispose で元に戻す", async () => {
 	h.close();
 });
 
-test("[§6] visualViewport の高さを --dsh-mobile-vvh に流す（COARSE のみ）", async () => {
+test("[§6] visualViewport の高さと上端を CSS 変数に流し、ページはスクロールさせない（COARSE のみ）", async () => {
 	const h = mount();
+	let scrolled = 0;
+	h.window.scrollTo = () => { scrolled++; };
+	// 旧実装はページがずれているとき（scrollY≠0）に scrollTo していた。その条件を作った上で呼ばれないことを見る。
+	Object.defineProperty(h.window, "scrollY", { value: 120, configurable: true });
 	h.visualViewport.height = 500.4;
+	h.visualViewport.offsetTop = 0;
 	h.visualViewport.dispatchEvent(new h.window.Event("resize"));
-	assert.equal(h.document.documentElement.style.getPropertyValue("--dsh-mobile-vvh"), "500px");
+	const style = h.document.documentElement.style;
+	assert.equal(style.getPropertyValue("--dsh-mobile-vvh"), "500px");
+	// iOS がキーボード表示中に visual viewport をパンしたら、#root の上端を追従させる（KI-9）。
+	h.visualViewport.offsetTop = 290.6;
+	h.visualViewport.dispatchEvent(new h.window.Event("scroll"));
+	assert.equal(style.getPropertyValue("--dsh-mobile-vvtop"), "291px");
+	assert.equal(scrolled, 0, "フォーカス時スクロールと競合する scrollTo は呼ばない");
+	// happy-dom は CSS の (pointer:coarse) を評価しないため、注入 CSS の構造で検査する。
+	const css = h.document.querySelector("style[data-plugin=dsh-mobile-ui]").textContent;
+	assert.match(css, /@media \(max-width:1023px\) and \(pointer:coarse\)\{[^@]*#root\{position:fixed;[^}]*top:var\(--dsh-mobile-vvtop,0px\)/);
+	assert.match(css, /@media \(max-width:1023px\) and \(pointer:coarse\)\{[^@]*html,body\{overflow:hidden;/);
 	h.close();
-	// fine pointer・1024px 以上では、起動時も resize 時も変数を設定せず scrollTo も呼ばない。
+	// fine pointer・1024px 以上では、起動時も resize/scroll 時も変数を設定しない。
 	for (const opt of [{ coarse: false }, { width: 1024 }]) {
 		const t = mount(opt);
-		let scrolled = 0;
-		t.window.scrollTo = () => { scrolled++; };
-		Object.defineProperty(t.window, "scrollY", { value: 10, configurable: true });
 		t.visualViewport.height = 400;
+		t.visualViewport.offsetTop = 100;
 		t.visualViewport.dispatchEvent(new t.window.Event("resize"));
-		assert.equal(t.document.documentElement.style.getPropertyValue("--dsh-mobile-vvh"), "", JSON.stringify(opt));
-		assert.equal(scrolled, 0, JSON.stringify(opt));
+		t.visualViewport.dispatchEvent(new t.window.Event("scroll"));
+		const st = t.document.documentElement.style;
+		assert.equal(st.getPropertyValue("--dsh-mobile-vvh"), "", JSON.stringify(opt));
+		assert.equal(st.getPropertyValue("--dsh-mobile-vvtop"), "", JSON.stringify(opt));
 		t.close();
 	}
-	// COARSE ならスクロールを原点へ戻す。
-	const c = mount();
-	let scrolled = 0;
-	c.window.scrollTo = () => { scrolled++; };
-	Object.defineProperty(c.window, "scrollY", { value: 10, configurable: true });
-	c.visualViewport.dispatchEvent(new c.window.Event("resize"));
-	assert.equal(scrolled, 1);
-	c.close();
 });
 
 test("[§7] dispose ですべての DOM 介入を撤去する", async () => {
@@ -204,6 +211,7 @@ test("[§7] dispose ですべての DOM 介入を撤去する", async () => {
 	assert.equal(d.querySelector(".dsh-mobile-ui-fab"), null);
 	assert.equal(d.body.dataset.dshMobileSidebar, undefined);
 	assert.equal(d.documentElement.style.getPropertyValue("--dsh-mobile-vvh"), "");
+	assert.equal(d.documentElement.style.getPropertyValue("--dsh-mobile-vvtop"), "");
 	assert.equal(h.el("side").inert, false);
 	swipe(h, h.el("msg"), [10, 300], [120, 300]);
 	assert.equal(h.calls.toggleSidebar, 0, "リスナーも外れる");

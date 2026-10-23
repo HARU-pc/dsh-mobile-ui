@@ -58,7 +58,7 @@ export function mount({ width = 390, height = 800, coarse = true, withFrame = tr
 
 	// visualViewport は happy-dom に無いので、resize を発火できる簡易版を置く。
 	const vvTarget = new window.EventTarget();
-	const visualViewport = Object.assign(vvTarget, { height });
+	const visualViewport = Object.assign(vvTarget, { height, offsetTop: 0 });
 	window.visualViewport = visualViewport;
 
 	// 公開サービスの偽装: toggleSidebar は AppFrame の data-sidebar-collapsed を反転する

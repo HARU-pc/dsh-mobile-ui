@@ -119,11 +119,14 @@ document 上の passive な `touchstart` / `touchend` / `touchcancel` で判定�
 ## 6. viewport・キーボード・セーフエリア
 
 - **viewport meta**（[client.js:95-103](../lib/client.js#L95-L103)）: `meta[name=viewport]` があれば、content を `width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content` に置き換える。元の値は dispose 時に戻す。meta が無い場合は新規作成しない。この書換は幅にもポインタにも依存しない。
-- **visualViewport 追従**（[client.js:107-122](../lib/client.js#L107-L122)）: effect 登録直後に 1 回、その後は `visualViewport.resize` のたびに、`COARSE` なら次の 2 つを行う。`COARSE` の change は監視しないため、条件を外れた間も変数は前の値のまま残る（[KI-6](known-issues.md)）。
-  - `--dsh-mobile-vvh` を `round(visualViewport.height)px` に設定する。
-  - window がスクロールしていれば `scrollTo(0,0)` で原点へ戻す。
+- **visualViewport 追従**（ADR-20261024-0450）: effect 登録直後に 1 回、その後は `visualViewport` の `resize`（キーボードの出入り）と `scroll`（パン）のたびに、`COARSE` なら次を設定する。
+  - `--dsh-mobile-vvh` = `round(visualViewport.height)px`
+  - `--dsh-mobile-vvtop` = `round(max(0, visualViewport.offsetTop))px`
 
-  `COARSE` 下では `#root{height:var(--dsh-mobile-vvh,100%)}` を適用する。変数が未設定なら 100% にフォールバックする。
+  `COARSE` 下では `#root` を `position:fixed; left:0; right:0; top:var(--dsh-mobile-vvtop,0px); height:var(--dsh-mobile-vvh,100%)` とし、`html,body` を `overflow:hidden; overscroll-behavior:none` にする。
+  変数が未設定の場合は、上端 0・高さ 100% にフォールバックする。ページ（window）はスクロールさせない。
+  不変条件 `RootTracksVisualViewport`: `COARSE` の間に更新処理（起動時・resize・scroll）が走った直後は、`#root` が visual viewport の見えている範囲と（丸め誤差を除いて）重なる。遷移中や、KI-6 の経路では保証しない。
+  `COARSE` の change は監視しないため、条件を外れた間も変数は前の値のまま残る（[KI-6](known-issues.md)）。
 - **入力 16px**（`COARSE`、[client.js:62](../lib/client.js#L62)）: checkbox / radio 以外の input、textarea、select、`[data-lexical-editor]`、`[contenteditable=true]` に `font-size:16px !important` を指定する。iOS のフォーカス時自動ズームを抑止するためで、meta の `maximum-scale=1` との二重の対策になる。
 - **セーフエリア**（[client.js:65-67](../lib/client.js#L65-L67)）: 幅 ≤1023px で standalone / fullscreen 表示のとき、`#root` の上下左右に `env(safe-area-inset-*)` の padding を付ける。ドロワーと FAB は個別に inset を考慮する。
 
