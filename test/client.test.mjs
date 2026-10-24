@@ -202,6 +202,91 @@ test("[§6] visualViewport の高さと上端を CSS 変数に流し、ページ
 	}
 });
 
+test("[§6] 可視範囲が変わったら window の resize を再送する（KI-10、COARSE のみ）", async () => {
+	const h = mount();
+	// 起動時の初期化では送らない（開いているメニューが無い）。
+	assert.equal(h.resizeCount(), 0);
+	// キーボード表示に相当する高さの変化では送る（DSH のメニューがトリガー位置を取り直す契機）。
+	h.visualViewport.height = 500.4;
+	h.visualViewport.dispatchEvent(new h.window.Event("resize"));
+	assert.equal(h.resizeCount(), 1);
+	// 丸め値が変わる変化では送る（500 -> 501）。
+	h.visualViewport.height = 500.9;
+	h.visualViewport.dispatchEvent(new h.window.Event("resize"));
+	assert.equal(h.resizeCount(), 2);
+	// 丸め値が変わらない再通知では送らない（501 のまま）。
+	h.visualViewport.height = 501.2;
+	h.visualViewport.dispatchEvent(new h.window.Event("resize"));
+	assert.equal(h.resizeCount(), 2);
+	// パン（offsetTop の変化）でも送る。
+	h.visualViewport.offsetTop = 120.2;
+	h.visualViewport.dispatchEvent(new h.window.Event("scroll"));
+	assert.equal(h.resizeCount(), 3);
+	h.close();
+	// COARSE 外（fine pointer / 1024px 以上）では送らない。
+	for (const opt of [{ coarse: false }, { width: 1024 }]) {
+		const t = mount(opt);
+		t.visualViewport.height = 400;
+		t.visualViewport.offsetTop = 100;
+		t.visualViewport.dispatchEvent(new t.window.Event("resize"));
+		t.visualViewport.dispatchEvent(new t.window.Event("scroll"));
+		assert.equal(t.resizeCount(), 0, JSON.stringify(opt));
+		// 印も付けない（DOM を変えない）。
+		const el = t.document.createElement("div");
+		el.style.position = "fixed";
+		t.document.body.append(el);
+		await t.flush();
+		assert.equal(el.hasAttribute("data-dsh-mobile-overlay"), false, JSON.stringify(opt));
+		t.close();
+	}
+});
+
+test("[§6] body 直下の固定オーバーレイに座標補正の印を付ける（KI-10）", async () => {
+	const h = mount();
+	const fixed = h.document.createElement("div");
+	fixed.style.position = "fixed";
+	h.document.body.append(fixed);
+	await h.flush();
+	assert.equal(fixed.hasAttribute("data-dsh-mobile-overlay"), true);
+	// 通常フローの要素には付けない（同時に、次の走査の契機にもする）。
+	const normal = h.document.createElement("div");
+	h.document.body.append(normal);
+	await h.flush();
+	assert.equal(normal.hasAttribute("data-dsh-mobile-overlay"), false);
+	// アプリ本体（#root）は top で補正済みなので、fixed でも対象外。
+	h.el("root").style.position = "fixed";
+	const trigger = h.document.createElement("div");
+	h.document.body.append(trigger);
+	await h.flush();
+	assert.equal(h.el("root").hasAttribute("data-dsh-mobile-overlay"), false);
+	// 全画面レイヤ（inset:0 の Modal 等）は対象外。
+	const full = h.document.createElement("div");
+	full.style.position = "fixed";
+	full.style.top = "0px";
+	full.style.left = "0px";
+	full.style.right = "0px";
+	full.style.bottom = "0px";
+	h.document.body.append(full);
+	await h.flush();
+	assert.equal(full.hasAttribute("data-dsh-mobile-overlay"), false);
+	// 補正は COARSE の media 内の CSS で行う（happy-dom は (pointer:coarse) を評価しないため構造で検査する）。
+	const css = h.document.querySelector("style[data-plugin=dsh-mobile-ui]").textContent;
+	assert.match(css, /@media \(max-width:1023px\) and \(pointer:coarse\)\{[^@]*\[data-dsh-mobile-overlay\]\{translate:0 var\(--dsh-mobile-vvtop,0px\);\}/);
+	// dispose 後は印を付けず、可視範囲が変わっても resize を送らない。
+	h.dispose();
+	assert.equal(fixed.hasAttribute("data-dsh-mobile-overlay"), false);
+	const after = h.document.createElement("div");
+	after.style.position = "fixed";
+	h.document.body.append(after);
+	await h.flush();
+	assert.equal(after.hasAttribute("data-dsh-mobile-overlay"), false);
+	const before = h.resizeCount();
+	h.visualViewport.height = 600;
+	h.visualViewport.dispatchEvent(new h.window.Event("resize"));
+	assert.equal(h.resizeCount(), before);
+	h.close();
+});
+
 test("[§7] dispose ですべての DOM 介入を撤去する", async () => {
 	const h = mount();
 	await h.flush();

@@ -1,7 +1,7 @@
 # 既知の問題
 
 対象: `lib/client.js`（ブランチ `chore/dev-infra` 時点）、`@deepseek-ai/dsh-web-app` 0.2.0-rc.2。
-各項目は GitHub issue（#1〜#8）に転記済み。進捗と議論は issue で扱い、確定した仕様の変更は spec.md に反映する。
+各項目は GitHub issue（#1〜#8、#11）に転記済み。進捗と議論は issue で扱い、確定した仕様の変更は spec.md に反映する。
 特記のない限り、コードと DSH 配布物を読んで導いた推定であり、実機では観測していない。
 
 **モバイルへの影響の目安**: iPhone のソフトウェアキーボードには Escape キーが無い。そのため Escape 起点の問題（KI-1、KI-7）は、
@@ -18,6 +18,7 @@
 | KI-7 | ドロワーとモーダルが同時に開いた状態で Escape を押すと、両方とも閉じる | 外付けキーボード | 未着手（[#7](https://github.com/HARU-pc/dsh-mobile-ui/issues/7)） |
 | KI-9 | 入力欄をタップすると、入力欄が画面の上へ外れていく | iPhone PWA（実機で報告あり） | 解決（ADR-20261024-0450、2026-10-24 に実機で確認） |
 | KI-8 | ピンチによる拡大縮小が効かない | iPhone PWA（実機で報告あり） | 未着手（[#8](https://github.com/HARU-pc/dsh-mobile-ui/issues/8)） |
+| KI-10 | キーボード表示中、モデル選択メニューが画面上端の外へ出る | iPhone PWA（実機で報告あり） | 解決（ADR-20261024-1646、2026-10-24 に実機で確認。修正は [#11](https://github.com/HARU-pc/dsh-mobile-ui/issues/11)） |
 
 ## KI-1 Escape で閉じた後、フォーカスが FAB に戻らない（旧 Q1）
 
@@ -92,6 +93,23 @@
 - **切り分け**: `cordis.patch.yml` からプラグインを外して再読込し、ピンチが効くかを試す。効けば仮説 1 になる。
 - **修正案**: `maximum-scale=1` をやめる。フォーカス時の自動ズームは、入力 16px 化のルールだけで防げる見込み。
   修正後は KI-2 が顕在化するため、同時に扱う。
+
+## KI-10 キーボード表示中、モデル選択メニューが画面上端の外へ出る
+
+- **観測**: オーナーが iPhone PWA の実機で報告した（2026-10-24）。モデルを選択しようと一覧を開き、一覧の外側の余白を
+  スクロールすると、一覧が画面上端の外へ出る。新規セッションに限らず発生する。
+- **原因（実機の計測で確認）**: iOS はキーボードで visual viewport をパンしている間、`getBoundingClientRect()` を
+  可視範囲基準で返すが、`position:fixed` の `top` は layout viewport 基準のまま解釈する。
+  ADR-20261024-0450 で `#root` だけを `offsetTop` 分補正していたため、`document.body` へ portal される
+  固定オーバーレイ（DSH のメニューなど）は `offsetTop` の分だけ上へずれる。DSH の `ModelSelect.place()` は
+  可視基準の rect から layout 基準の `top` を計算するため、キーボード表示中は常にずれる。
+  実測（キーボード表示中）: メニュー `top = -25`、トリガー `top = 290`。同じ `top` を持つ本プラグインの診断バッジも上端が欠けた。
+- **対応**: ADR-20261024-1646。body 直下の固定要素に `data-dsh-mobile-overlay` を付け、`COARSE` のあいだ
+  `translate: 0 var(--dsh-mobile-vvtop)` で `#root` と同じ座標系へ寄せる。あわせて、`visualViewport` の変化時に
+  `window` へ `resize` を再送し、DSH の再配置を促す。2026-10-24 にオーナーが iPhone PWA で確認し、解決とした。
+- **残る制限**: 横方向（offsetLeft）は補正しない。layout viewport 全体を覆うレイヤ（`inset:0` の Modal 等）は対象外で、
+  キーボード表示中の中央寄せは従来どおり（別問題）。`translate` が containing block を作るため、
+  オーバーレイ内に `position:fixed` の子要素がある場合は基準が変わりうる（DSH のメニュー・モーダル・トーストでは未確認）。
 
 ## KI-9 入力欄をタップすると、入力欄が画面の上へ外れていく
 
