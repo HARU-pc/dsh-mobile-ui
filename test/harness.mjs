@@ -61,6 +61,10 @@ export function mount({ width = 390, height = 800, coarse = true, withFrame = tr
 	const visualViewport = Object.assign(vvTarget, { height, offsetTop: 0 });
 	window.visualViewport = visualViewport;
 
+	// プラグイン適用前に window の resize を数える（KI-10: 起動時に送らないことの検査に要る）。
+	let windowResizes = 0;
+	window.addEventListener("resize", () => { windowResizes++; });
+
 	// 公開サービスの偽装: toggleSidebar は AppFrame の data-sidebar-collapsed を反転する
 	// （<1024px の narrowExpanded 反転に相当）。呼出回数も記録する。
 	const calls = { toggleSidebar: 0, toggleExpanded: 0 };
@@ -94,6 +98,7 @@ export function mount({ width = 390, height = 800, coarse = true, withFrame = tr
 	const dispose = () => { for (const d of ctx.effects.splice(0)) d?.(); };
 	return {
 		window, document, ctx, calls, flush, dispose, setViewport, visualViewport,
+		resizeCount: () => windowResizes,
 		setRightExpanded: (v) => { rightExpanded = v; },
 		el: (id) => document.getElementById(id),
 		close: () => { dispose(); window.happyDOM.close(); }

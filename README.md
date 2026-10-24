@@ -12,6 +12,8 @@ DSH Web GUI をスマホ・タブレットで使いやすくするローカル c
   スワイプ操作: 左半分からの右スワイプでサイドバー、左端からの右スワイプで右パネルから戻る、左スワイプで閉じる。
 - **iOS keyboard & zoom fixes**: viewport meta (`maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content`), 16px inputs to stop focus auto-zoom, and `visualViewport` tracking so the keyboard does not cover the composer in PWA (standalone/fullscreen) mode.
   iOS のフォーカスズーム抑止と、PWA でキーボードが入力欄を覆う問題の補正。
+- **Portal overlays stay in view**: overlays portaled to `document.body` (the model picker, modals, toasts) are translated by the same visual-viewport offset as `#root`, so the iOS keyboard no longer pushes them off-screen.
+  body 直下へ portal されるオーバーレイ（モデル選択メニュー等）も `#root` と同じ補正を受け、キーボード表示中も画面内に留まる（KI-10、ADR-20261024-1646）。
 - **Safe-area padding** for notch / home-indicator in PWA display modes.
 
 ## Install / 導入
